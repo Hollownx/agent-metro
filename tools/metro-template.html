@@ -1198,9 +1198,11 @@ function toast(msg, ms = 3200) {
   toastTimer = setTimeout(() => { el.hidden = true; }, ms);
 }
 
-/* 请求本地服务：连不上、或者迟迟不答话（服务卡住了）都换成一句能照着做的话 */
-const NO_SERVER = "连不上看板服务：双击看板目录里的「打开地铁图.bat」重新打开";
-const STUCK_SERVER = "看板服务没有响应：双击看板目录里的「打开地铁图.bat」，它会换掉卡住的服务，然后刷新本页";
+/* 请求服务端：连不上、或者迟迟不答话（服务卡住了）都换成一句能照着做的话。云端和本机是两条话术 */
+const LOCAL_ERR = "连不上看板服务：双击看板目录里的「打开地铁图.bat」重新打开";
+const STUCK_LOCAL = "看板服务没有响应：双击看板目录里的「打开地铁图.bat」，它会换掉卡住的服务，然后刷新本页";
+const NO_SERVER = SERVER && SERVER.cloud ? "连不上云端看板：检查网络或稍后再试（本机不受影响）" : LOCAL_ERR;
+const STUCK_SERVER = SERVER && SERVER.cloud ? "云端看板没有响应：稍后再试" : STUCK_LOCAL;
 async function callServer(path, init, ms = 15000) {
   const ctl = new AbortController();
   const timer = setTimeout(() => ctl.abort(), ms);
@@ -1479,7 +1481,9 @@ document.addEventListener("keydown", (e) => {
 });
 
 $("#meta").textContent = SERVER
-  ? `数据来自 TODO.md 与 ARCHIVE.md（台账更新于 ${DATA.ledgerUpdated || "—"}）· 读取于 ${DATA.generatedAt.slice(11)} · 点一站（或右键）可以改状态、写备注；线路左侧可以归档整个项目`
+  ? (SERVER.cloud
+    ? `台账存在云端（Cloudflare），多台设备打开同一个网址，看到的都是同一份数据（台账更新于 ${DATA.ledgerUpdated || "—"}）· 点一站（或右键）可以改状态、写备注；线路左侧可以归档整个项目`
+    : `数据来自 TODO.md 与 ARCHIVE.md（台账更新于 ${DATA.ledgerUpdated || "—"}）· 读取于 ${DATA.generatedAt.slice(11)} · 点一站（或右键）可以改状态、写备注；线路左侧可以归档整个项目`)
   : `数据来自 TODO.md 与 ARCHIVE.md（台账更新于 ${DATA.ledgerUpdated || "—"}）· 本页生成于 ${DATA.generatedAt} · 这是只读快照；双击「打开地铁图.bat」打开的版本可以改状态、归档项目`;
 if (SERVER && (SERVER.stale || SERVER.libError)) {
   const warn = document.createElement("div");
@@ -1490,9 +1494,10 @@ if (SERVER && (SERVER.stale || SERVER.libError)) {
   $("header").append(warn);
 }
 
-/* 右上角「刷新」：让服务换上新版看板代码（服务本身更新了就重启），再重新载入页面 */
+/* 右上角「刷新」：本机模式下让服务换上新版看板代码（服务本身更新了就重启），再重新载入页面。
+   云端模式没有本机服务要重启，按钮不出现。 */
 const refreshBtn = $("#refresh");
-if (SERVER) {
+if (SERVER && !SERVER.cloud) {
   refreshBtn.hidden = false;
   refreshBtn.title = SERVER.stale ? "看板服务有更新：点一下重启服务并刷新" : "重新读取台账；看板代码更新过会顺带换上新版";
   if (SERVER.stale) refreshBtn.classList.add("primary");
@@ -1548,8 +1553,8 @@ try {
   if (flash) { sessionStorage.removeItem("metro-flash"); window.scrollTo(0, flash.y || 0); toast(flash.msg, flash.ms); }
 } catch (e) {}
 
-/* 心跳：页面开着，本地服务就不会因空闲退出 */
-if (SERVER) setInterval(() => { fetch("/api/ping", { method: "POST" }).catch(() => {}); }, 60 * 1000);
+/* 心跳：页面开着，本地服务就不会因空闲退出（云端没有自动退出这回事，不打这个招呼） */
+if (SERVER && !SERVER.cloud) setInterval(() => { fetch("/api/ping", { method: "POST" }).catch(() => {}); }, 60 * 1000);
 </script>
 </body>
 </html>

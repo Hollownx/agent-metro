@@ -39,6 +39,7 @@ This tool keeps every task in **one plain-text ledger** (`TODO.md`, readable and
 - 📝 **Full history** — every click on the map is appended to `HISTORY.md`, which the agent reads at the start of each session; the ledger is backed up before every write.
 - 🔌 **Tool-agnostic** — the rules are plain Markdown (`PROTOCOL.md`), so Claude Code, Cursor, Trae and Codex can all follow them.
 - 🔒 **Local only** — a zero-dependency Node.js server bound to `127.0.0.1`; the data is a few Markdown files you can keep in git.
+- 🌐 **Optional multi-device sync** — deploy the same board to your own Cloudflare domain; every device opens the same URL and edits the same ledger; local folders sync via `tools/cloud-sync.js push` / `pull`.
 
 <table>
 <tr>
@@ -81,6 +82,19 @@ node tools/ledger.js belt                         # what's overdue / waiting too
 ## Hooking up your AI agents
 
 Paste [`claude/全局规则片段.md`](claude/全局规则片段.md) into `~/.claude/CLAUDE.md` (replace `<看板目录>` with the path to this repo), optionally copy `claude/skills/open-review/` into `~/.claude/skills/`, and add the "dashboard link" section from that file to each project's `AGENTS.md`. The reporting protocol lives in [`PROTOCOL.md`](PROTOCOL.md).
+
+## Optional: sync across devices (Cloudflare)
+
+Run the same board on the public internet so a phone or another computer opens one URL and edits the same ledger. The ledger text lives in a Cloudflare Durable Object; ledger operations go through the same `tools/ledger-core.js` code as the local CLI.
+
+```bash
+npx wrangler login                                   # first time: authorize your Cloudflare account in the browser
+node cloud/deploy.js                                 # package the local ledger as seed, deploy (URL: routes in cloud/wrangler.jsonc)
+npx wrangler secret put BOARD_PASSWORD               # set the board password once (fail closed until set)
+node tools/cloud-sync.js login https://your-url "password"   # log in locally (credentials in .board-auth.json, gitignored)
+```
+
+Then `node tools/cloud-sync.js push` after local edits, `pull` on other devices, `status` to compare, `revisions` to see recent cloud changes. If both sides changed, plain push/pull refuse to run; `push --force` takes your local files as the truth, `pull --force` takes the cloud's (the overwritten files are backed up to `.backup/`). Configure your domain in `routes` inside `cloud/wrangler.jsonc` (your zone must be on the same Cloudflare account).
 
 ## License
 

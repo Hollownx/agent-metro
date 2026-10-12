@@ -4,6 +4,14 @@
 # 生成物：node tools/build-metro.js 随时可重新生成
 metro.html
 
+# 跨设备同步的本机凭据 / 对齐记录（放进备份：别人的 Cookie 和台账快照不上库）
+.board-auth.json
+.board-sync.json
+
+# 云端部署的打包产物：node cloud/deploy.js 每次从本机台账现生成
+cloud/seed.json
+.wrangler/
+
 # 个人本地配置
 .claude/settings.local.json
 

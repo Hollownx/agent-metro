@@ -1,0 +1,27 @@
+{
+  // 到站 · Agent Metro —— 云端看板（Cloudflare Worker）的 wrangler 配置。
+  // 部署：node cloud/deploy.js（从本机台账打包 seed，再 wrangler deploy）
+  // 密码：npx wrangler secret put BOARD_PASSWORD（没设密码全站 fail closed）
+  // 域名：2026-10-12 用户定 board.moonai.loan（不占根域名 moonai.loan）
+  "$schema": "https://unpkg.com/wrangler/config-schema.json",
+  "name": "agent-metro-board",
+  "main": "worker.js",
+  "compatibility_date": "2026-09-01",
+  "account_id": "e911e78db795bc40ab76609efbd685d9",
+  "workers_dev": false,
+  "routes": [
+    { "pattern": "board.moonai.loan", "custom_domain": true }
+  ],
+  "durable_objects": {
+    "bindings": [
+      { "name": "BOARD", "class_name": "BoardDO" }
+    ]
+  },
+  "migrations": [
+    { "tag": "v1", "new_sqlite_classes": ["BoardDO"] }
+  ],
+  "rules": [
+    // 把看板模板当纯文本打进 Worker（fillTemplate 装数据用）
+    { "type": "Text", "globs": ["**/*.html"] }
+  ]
+}

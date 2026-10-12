@@ -50,6 +50,7 @@
 | 📝 **变更全记录** | 你在图上的每次操作都记进 `HISTORY.md`，AI 下次开会话先读它；每次写台账前自动备份 |
 | 🔌 **不挑工具** | 规则写成普通 Markdown（`PROTOCOL.md`），Claude Code、Cursor、Trae、Codex 都能照着上报 |
 | 🔒 **只在本机** | 零依赖 Node.js 小服务，只监听 `127.0.0.1`；台账就是几个 Markdown 文件，可以用 git 管 |
+| 🌐 **多设备同步（可选）** | 把同一套看板部署到自己的 Cloudflare 域名上：手机 / 别的电脑打开同一个网址，改的是同一份台账；本机目录用 `tools/cloud-sync.js` push / pull 对齐 |
 
 <table>
 <tr>
@@ -84,6 +85,25 @@ cd agent-metro
 2. **去验收技能**（可选）：把 `claude/skills/open-review/` 复制到 `~/.claude/skills/`。之后说「去验收 T004」，AI 先给对照图和验收标准，**你同意了才把窗口开到桌面**。
 3. **看板会话**：在本仓库目录里开 Claude Code，它会读 [`CLAUDE.md`](CLAUDE.md)，懂「总览」「推进 T005」「收单」「完成 T004」这些说法。
 4. **各项目里的 AI**：在每个项目的 `AGENTS.md`（Cursor / Trae 读它）或 `CLAUDE.md` 里加一节「总看板联动」，模板在 [`claude/全局规则片段.md`](claude/全局规则片段.md) 末尾；上报规矩全在 [`PROTOCOL.md`](PROTOCOL.md)。
+
+## 多设备同步（可选）：部署到自己的 Cloudflare
+
+台账平时就在本机。想把同一张板子放到公网——手机看一眼、别的电脑直接改、改完还是同一份——用同一套代码部署一个云端版本（台账文本存在 Cloudflare Durable Object 里，改台账走的就是 `tools/ledger-core.js` 那套逻辑，页面还是同一张线路图）：
+
+```bash
+npx wrangler login                                   # 第一次：浏览器授权 Cloudflare 账号
+node cloud/deploy.js                                 # 从本机台账打包 + 部署（网址看 cloud/wrangler.jsonc 的 routes）
+npx wrangler secret put BOARD_PASSWORD               # 设一次看板密码（没设会一直显示「去设密码」，全站 fail closed）
+node tools/cloud-sync.js login https://你的网址 "密码"    # 本机登录（凭据存 .board-auth.json，已在 .gitignore）
+```
+
+- **前提**：你的域名已在 Cloudflare 接管；网址/路由改 `cloud/wrangler.jsonc` 的 `routes`，账号和 Worker 名也在这个文件里。账号第一次部署 Worker 前要先在 Dashboard 打开一次 Workers 页面（会自动建 workers.dev 子域）。
+- **日常**（改完本机台账之后）：
+  - `node tools/cloud-sync.js push` —— 把本机的 TODO/ARCHIVE/HISTORY/pins.json + projects/*.md 推上云端；
+  - 其他设备刷新网址就是最新的；或在那台设备上 `node tools/cloud-sync.js pull` 后继续本机；
+  - `node tools/cloud-sync.js status` 看两边差异；`node tools/cloud-sync.js revisions` 看云端最近的操作。
+- **两边都动过怎么办（不会静默互踩）**：本机记着「最后对齐的版本」，云端版本变了 = 有别的设备写过，这时 push/pull 会被挡下；以本机为准 `push --force`，以云端为准 `pull --force`，被覆盖的文件自动备份到 `.backup/`。
+- **改密码 / 换网址**：`npx wrangler secret put BOARD_PASSWORD` 改密码（所有已登录设备跟着失效）；改动 routes 重新 `node cloud/deploy.js` 即可。密码也可以在部署时一并带上：`node cloud/deploy.js --password "密码"`。
 
 ## 台账长什么样
 
@@ -137,6 +157,8 @@ EOF
 | `tools/build-metro.js` · `metro-template.html` | 台账 → 线路图页面；`node tools/build-metro.js` 另存一份只读的 `metro.html` |
 | `tools/open-review.js` | 「去验收」：按项目页登记的方式准备 / 打开验收界面 |
 | `progress-card/card.js` | 进度卡 |
+| `tools/cloud-sync.js` | 跨设备同步命令行：login / status / push / pull / revisions |
+| `cloud/` | 云端看板（Cloudflare Worker）：`worker.js`（DO 存储 + 登录 + 接口）、`wrangler.jsonc`（域名 / 账号）、`deploy.js`（从本机台账打包部署） |
 | `claude/` | 给 Claude Code 的全局规则片段和「去验收」技能 |
 
 ## 常见问题
@@ -151,6 +173,7 @@ EOF
 <summary><b>数据存在哪？会上传吗？</b></summary>
 
 全在你本机的几个 Markdown 文件里。服务只监听 `127.0.0.1`，不联网。建议把看板目录用 git 管起来，当后悔药。
+想跨设备的话，可以把台账部署到你自己的 Cloudflare（见「多设备同步」一节）——那时台账文本存在 Cloudflare 的 Durable Object 存储里，有看板密码的人才能访问。
 </details>
 
 <details>
@@ -162,7 +185,7 @@ EOF
 <details>
 <summary><b>能多人一起用吗？</b></summary>
 
-目前是给一个人管多个项目设计的。多人共用可以把看板放进一个 git 仓库，各自拉取、提交。
+目前是给一个人管多个项目设计的。多人共用可以把看板放进一个 git 仓库，各自拉取、提交；或者部署到 Cloudflare（同上）后把网址和密码给可靠的人。
 </details>
 
 ## Star History
